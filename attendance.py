@@ -27,7 +27,7 @@ def mark_checkin(emp_id, name):
     cursor = conn.cursor()
 
     today = datetime.now().strftime('%Y-%m-%d')
-    now_time = datetime.now().strftime('%H:%M:%S')
+    now_time = datetime.now().strftime('%I:%M %p')
 
     cursor.execute("""
         SELECT id FROM attendances 
