@@ -53,7 +53,7 @@ def load_known_faces():
 class AttendanceApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Face Attendance System")
+        self.root.title("Nivesh Mangal Attendance System")
         self.root.configure(bg=BG)
         self.root.attributes('-fullscreen', True)
         self.root.bind('<Escape>', lambda e: self.root.attributes('-fullscreen', False))
@@ -298,9 +298,9 @@ class AttendanceApp:
                 self.set_status(f"{name} pehle se checkin hai!", YELLOW)
             else:
                 cursor.execute("""
-                    INSERT INTO attendances (date, employee_id, checkin, status, type)
-                    VALUES (%s,%s,%s,%s,%s)
-                """, (today, emp_id, now_time, 1, 'face_recognition'))
+                    INSERT INTO attendances (date, employee_id, checkin, status, type,note)
+                    VALUES (%s,%s,%s,%s,%s,%s)
+                """, (today, emp_id, now_time, 1, 'Present ','face_recognition'))
                 conn.commit()
                 result = f"✅ {name}\nCheckin: {now_time}"
                 self.set_status(f"✅ {name} — Checkin: {now_time}", GREEN)
@@ -315,11 +315,46 @@ class AttendanceApp:
             elif record[2]:
                 self.set_status(f"{name} checkout ho chuka!", YELLOW)
             else:
-                cursor.execute("UPDATE attendances SET checkout=%s WHERE id=%s",
-                               (now_time, record[0]))
+                # Calculate worked hours by comparing stored checkin time with now
+                checkin_str = record[1]
+                now_dt = datetime.now()
+                hours = 0.0
+                try:
+                    # Stored checkin format like '02:34pm' (lowercase), normalize and parse
+                    parsed = datetime.strptime(checkin_str.upper(), '%I:%M%p')
+                    checkin_dt = parsed.replace(year=now_dt.year, month=now_dt.month, day=now_dt.day)
+                    diff = now_dt - checkin_dt
+                    hours = diff.total_seconds() / 3600.0
+                except Exception:
+                    # If parsing fails, keep hours as 0.0
+                    hours = 0.0
+
+                # Decide `type` based on worked hours (rounded rules)
+                hours_rounded = int(round(hours))
+                if hours < 2:
+                    type_val = 'Late Come / Left Early'
+                elif hours_rounded in (5, 7):
+                    type_val = 'Other (2/3)'
+                elif 2 <= hours < 5:
+                    # Check if checkin was before 2:00 PM
+                    try:
+                        parsed_checkin = datetime.strptime(checkin_str.upper(), '%I:%M%p')
+                        if parsed_checkin.hour < 14:  # Before 2:00 PM
+                            type_val = 'First Half'
+                        else:
+                            type_val = 'Second Half'
+                    except Exception:
+                        type_val = 'First Half'  # Default to First Half on error
+                else:
+                    type_val = 'Present'
+
+                cursor.execute(
+                    "UPDATE attendances SET checkout=%s, type=%s, note=%s WHERE id=%s",
+                    (now_time, type_val, 'face_recognition', record[0])
+                )
                 conn.commit()
-                result = f"🚪 {name}\nCheckout: {now_time}"
-                self.set_status(f"🚪 {name} — Checkout: {now_time}", ORANGE)
+                result = f"🚪 {name}\nCheckout: {now_time}\nType: {type_val}\nHours: {hours:.2f}"
+                self.set_status(f"🚪 {name} — Checkout: {now_time} — {type_val}", ORANGE)
         conn.close()
         return result
 

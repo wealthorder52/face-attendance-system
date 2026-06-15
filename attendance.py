@@ -171,9 +171,9 @@ def run_checkin():
                         else:
                             cursor.execute("""
                                 INSERT INTO attendances 
-                                (date, employee_id, checkin, status, type)
-                                VALUES (%s, %s, %s, %s, %s)
-                            """, (today, emp_id, now_time, 1, 'face_recognition'))
+                                (date, employee_id, checkin, status, type ,note)
+                                VALUES (%s, %s, %s, %s, %s, %s)
+                            """, (today, emp_id, now_time, 1, 'Present' , 'face_recognition'))
                             conn.commit()
                             status = f"CHECKIN: {now_time}"
                             print(f"  ✓ {name} - Checkin: {now_time}")
