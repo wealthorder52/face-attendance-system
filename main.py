@@ -300,7 +300,7 @@ class AttendanceApp:
                 cursor.execute("""
                     INSERT INTO attendances (date, employee_id, checkin, status, type,note)
                     VALUES (%s,%s,%s,%s,%s,%s)
-                """, (today, emp_id, now_time, 1, 'Present ','face_recognition'))
+                """, (today, emp_id, now_time, 1, 'Present','face_recognition'))
                 conn.commit()
                 result = f"✅ {name}\nCheckin: {now_time}"
                 self.set_status(f"✅ {name} — Checkin: {now_time}", GREEN)
@@ -315,46 +315,47 @@ class AttendanceApp:
             elif record[2]:
                 self.set_status(f"{name} checkout ho chuka!", YELLOW)
             else:
-                # Calculate worked hours by comparing stored checkin time with now
                 checkin_str = record[1]
-                now_dt = datetime.now()
-                hours = 0.0
+                now_dt      = datetime.now()
+
                 try:
-                    # Stored checkin format like '02:34pm' (lowercase), normalize and parse
-                    parsed = datetime.strptime(checkin_str.upper(), '%I:%M%p')
+                    parsed     = datetime.strptime(checkin_str.upper(), '%I:%M%p')
                     checkin_dt = parsed.replace(year=now_dt.year, month=now_dt.month, day=now_dt.day)
-                    diff = now_dt - checkin_dt
-                    hours = diff.total_seconds() / 3600.0
+                    diff       = now_dt - checkin_dt
+                    hours      = diff.total_seconds() / 3600.0
                 except Exception:
-                    # If parsing fails, keep hours as 0.0
                     hours = 0.0
 
-                # Decide `type` based on worked hours (rounded rules)
-                hours_rounded = int(round(hours))
+                # ── Type logic ──────────────────────────────
                 if hours < 2:
-                    type_val = 'Late Come / Left Early'
-                elif hours_rounded in (5, 7):
-                    type_val = 'Other (2/3)'
-                elif 2 <= hours < 5:
-                    # Check if checkin was before 2:00 PM
+                    type_val = 'Came Late/ Left Early'
+                elif 2 <= hours < 3:
+                    type_val = 'Came Late/ Left Early'
+                elif 3 <= hours < 5:
                     try:
-                        parsed_checkin = datetime.strptime(checkin_str.upper(), '%I:%M%p')
-                        if parsed_checkin.hour < 14:  # Before 2:00 PM
+                        checkin_hour = datetime.strptime(checkin_str.upper(), '%I:%M%p').hour
+                        if checkin_hour < 14:      # 2 baje se pehle → First Half
                             type_val = 'First Half'
-                        else:
+                        else:                      # 2 baje ke baad  → Second Half
                             type_val = 'Second Half'
                     except Exception:
-                        type_val = 'First Half'  # Default to First Half on error
-                else:
+                        type_val = 'First Half'
+                elif 5 <= hours < 7:
+                    type_val = 'Other'
+                else:                              # 7+ hours
                     type_val = 'Present'
+                # ────────────────────────────────────────────
+
+                hrs  = int(hours)
+                mins = int((hours - hrs) * 60)
 
                 cursor.execute(
                     "UPDATE attendances SET checkout=%s, type=%s, note=%s WHERE id=%s",
                     (now_time, type_val, 'face_recognition', record[0])
                 )
                 conn.commit()
-                result = f"🚪 {name}\nCheckout: {now_time}\nType: {type_val}\nHours: {hours:.2f}"
-                self.set_status(f"🚪 {name} — Checkout: {now_time} — {type_val}", ORANGE)
+                result = f"🚪 {name}\nCheckout: {now_time}\nType: {type_val}\nHours: {hrs}h {mins}m"
+                self.set_status(f"🚪 {name} — {type_val} ({hrs}h {mins}m)", ORANGE)
         conn.close()
         return result
 
