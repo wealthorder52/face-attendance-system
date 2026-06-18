@@ -28,6 +28,16 @@ def mark_checkin(emp_id, name):
 
     today = datetime.now().strftime('%Y-%m-%d')
     now_time = datetime.now().strftime('%I:%M %p')
+    
+    # Check if check-in is after 10:45
+    current_hour = datetime.now().hour
+    current_minute = datetime.now().minute
+    is_after_1045 = (current_hour > 10) or (current_hour == 10 and current_minute > 45)
+    
+    # Set status: 1 for normal, 2 for "other" (after 10:45)
+    status = 2 if is_after_1045 else 1
+    # Set type: "other" for late check-in, "face_recognition" for normal
+    att_type = "Other" if is_after_1045 else "face_recognition"
 
     cursor.execute("""
         SELECT id FROM attendances 
@@ -40,9 +50,10 @@ def mark_checkin(emp_id, name):
         cursor.execute("""
             INSERT INTO attendances (date, employee_id, checkin, status, type)
             VALUES (%s, %s, %s, %s, %s)
-        """, (today, emp_id, now_time, 1, 'face_recognition'))
+        """, (today, emp_id, now_time, status, att_type))
         conn.commit()
-        print(f"  ✓ {name} - Checkin: {now_time}")
+        status_text = "Other (after 10:45)" if is_after_1045 else "Present"
+        print(f"  ✓ {name} - Checkin: {now_time} - Status: {status_text}")
 
     conn.close()
 
